@@ -1,0 +1,71 @@
+---
+title: "Processing AA data"
+output:
+  github_document:
+    toc: true
+---
+
+## Steps
+- Get the functions from the source file 
+- Input the appropriate `file_name` and run clean_aa_data to keep sample data
+- Optional: Run subtract_blanks to remove blank values from samples
+
+
+## Cleaning data file
+
+Read in function using source_url:
+
+```{r, message = FALSE}
+devtools::source_url("https://raw.githubusercontent.com/deonlum/aa-data-processing/main/AA_functions.R")
+```
+
+Input your file name into the clean_aa_data function. Note the file has to be a .csv file. Convert the .SLK file in excel (save as comma delimited).
+
+```{r}
+file_name = "./sample_data.csv"
+
+clean_data = clean_aa_data(file_name)
+clean_data
+
+```
+
+All clean_aa_data does is to pick out the appropriate cells in the .csv file and puts it in a nice dataframe for downstream processing. It does not alter the values at all. clean_aa_data will also print what data columns were identified. In this case, this was a KCl run, so it retrieved data for Ammonia and Nitrate.
+
+Notice that in the sample data file (which is a truncated version of a real data file), there are multiple sets of samples. First, there are samples with A and B on them for KCl-A and KCl-B. And there are also samples from two timepoints: samples 1A/B to 6A/B are from T1, and all samples with the 'S' label are from the control timepoint. I also have an unwanted SPARE sample at the end.
+
+## Auto-detect and subtract blanks
+
+subtract_blanks will identify blanks, take the average, and subtract this value from all samples. This means if we run the function on the current dataframe, it will calculate an average using all the blanks (e.g., T1 BLANK 1, CONTROL BLANK 1) and subtract it from all the timepoints, which is not what we want.
+
+To make sure we get the intended behaviour, we can subset the relevant rows.
+
+
+```{r}
+T1_data = clean_data[1:15,]
+T1_data
+
+```
+
+And now:
+
+```{r}
+subtract_blanks(T1_data, blank_pattern = "BLANK")
+
+```
+
+Note that we have to specify the blank_pattern here. The default is "B" which doesn't work here since "B" is used to denote KCL-B samples. As an alternative, one can specify rows:
+
+```{r}
+my_data = subtract_blanks(T1_data, blank_rows = c(13:15))
+
+```
+
+At this point, it might also be useful to separate A and B values, or fumigated and unfumigated ones. A quick tip would be to use grep() (also useful it you have differently labelled sites:
+
+```{r}
+KCLA = my_data[grep("A", my_data$sample_id),]
+KCLB = my_data[grep("B", my_data$sample_id),]
+
+KCLA
+KCLB
+```
